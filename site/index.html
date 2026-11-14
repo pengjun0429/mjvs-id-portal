@@ -31,14 +31,14 @@
     <section class="hero section-wrap" id="top" aria-labelledby="hero-title">
       <p class="eyebrow">MICROSTATE COMMUNICATIONS JOINT VISA-FREE CENTER</p>
       <h1 id="hero-title">免簽 ID 申請<br class="mobile-break">與公開查驗</h1>
-      <p class="hero-lede">參與方逐一確認互惠後，人民可依核准流程取得個人 ID。目的地只需輸入 ID 查驗有效性，不需取得私人名錄或護照資料。</p>
+      <p class="hero-lede">參與方逐一確認互惠後，人民可依核准流程取得個人 ID。目的地只需查驗單筆 ID 有效性，不需要透過網站取得姓名或國家資料。</p>
       <div class="hero-actions">
         <a class="text-link link-primary" href="#verify">前往 ID 查驗 <span aria-hidden="true">→</span></a>
         <a class="text-link" href="https://discord.gg/upPuxDWxUT" target="_blank" rel="noopener noreferrer">前往 MJVS Discord <span aria-hidden="true">↗</span></a>
       </div>
       <div class="notice notice-status" role="status">
         <span class="notice-mark" aria-hidden="true">!</span>
-        <p><strong>正式查驗服務尚未啟用。</strong>私密名錄讀取權限與防護設定尚未完成；在完成前，本頁只會顯示「名錄尚未啟用／無法確認」，不會把空名錄誤報為查無 ID。</p>
+        <p><strong>正式查驗服務尚未啟用。</strong>目前 CSV 名錄沒有有效資料，且 Turnstile 與限流防護尚未完成；在資料與防護就緒前，本頁只會顯示「名錄尚未啟用／無法確認」，不會把空名錄誤報為查無 ID。</p>
       </div>
     </section>
 
@@ -62,7 +62,7 @@
       <div class="section-heading">
         <p class="eyebrow">02 / PARTICIPANT APPLICATION</p>
         <h2 id="application-title">參與方申請準備</h2>
-        <p>依 MJVS 規章草案第七條整理。最新受理方式與時程以 Discord 公告為準；請勿在公開頻道張貼私人文件或完整名單。</p>
+        <p>依 MJVS 規章草案第七條整理。最新受理方式與時程以 Discord 公告為準；請勿在公開頻道張貼私人文件。</p>
       </div>
       <div class="application-grid">
         <ul class="checklist">
@@ -76,7 +76,7 @@
         <aside class="application-aside">
           <p class="mini-label">聯絡入口</p>
           <p class="status-line"><span class="status-dot" aria-hidden="true"></span>MJVS Discord</p>
-          <p>先查看伺服器公告並聯絡管理員。護照、個人 ID 或整份名單只能依管理員提供的受控私密流程提交，不要貼在公開頻道。</p>
+          <p>先查看伺服器公告並聯絡管理員。護照等高度敏感資料只能依管理員提供的受控私密流程提交，不要貼在公開頻道。</p>
           <a class="subtle-link" href="https://discord.gg/upPuxDWxUT" target="_blank" rel="noopener noreferrer">前往 MJVS Discord <span aria-hidden="true">↗</span></a>
         </aside>
       </div>
@@ -86,7 +86,7 @@
       <div class="section-heading">
         <p class="eyebrow">03 / ID ISSUANCE</p>
         <h2 id="id-title">兩種 ID 建立方式</h2>
-        <p>參與方核准後，可由人民個別申請，或由該方透過受控流程提供 ID 名單。兩種方式均不得把私人資料公開。</p>
+        <p>參與方核准後，可由人民個別申請，或由該方透過受控流程提供 ID 名單。ID 核發仍須由授權管理流程處理。</p>
       </div>
       <div class="routes">
         <article class="route-item">
@@ -101,13 +101,13 @@
         </article>
         <article class="route-item">
           <p class="route-kicker">ROUTE B <span>參與方名單</span></p>
-          <h3>參與方安全交付 ID 名單</h3>
+          <h3>由參與方建立並維護 ID 名錄</h3>
           <ol class="compact-steps">
-            <li>由參與方指定代表透過私密、受控渠道交付名單。</li>
-            <li>正式名錄維持在限權私密試算表，不公開分享或匯入公開 repository。</li>
-            <li>公開端僅允許一次查驗一個 ID，不提供名單瀏覽、下載或批次查詢。</li>
+            <li>名錄目前以公開 CSV 試算表作為唯一查驗來源。</li>
+            <li>任何取得試算表連結的人都能檢視整份表格與所有欄位；請勿填入護照或其他未授權的敏感資料。</li>
+            <li>網站查驗 API 只比對 ID 與狀態欄，不回傳姓名或國家，也不提供列表或批次查詢。</li>
           </ol>
-          <p class="route-safeguard">請勿在公開網站或 Discord 頻道張貼、上傳或轉寄完整名單。</p>
+          <p class="route-safeguard">網站 API 的單筆回覆不代表來源試算表是私密的；名錄連結持有者可直接查看完整內容。</p>
         </article>
       </div>
     </section>
@@ -116,7 +116,7 @@
       <div class="section-heading">
         <p class="eyebrow">04 / PUBLIC ID LOOKUP</p>
         <h2 id="verify-title">單筆 ID 有效性查驗</h2>
-        <p>輸入一個 ID，只回覆有效、查無或無法確認；不顯示姓名、國家、護照資料，也不提供整份名錄或批次查詢。</p>
+        <p>輸入一個 ID，只回覆有效、查無或無法確認；網站 API 不顯示姓名、國家或護照資料，也不提供列表或批次查詢。來源 CSV 本身可由連結持有者檢視。</p>
       </div>
       <div class="lookup-form" role="search" aria-label="MJVS ID 單筆查驗">
         <label for="id-number">個人 ID</label>
@@ -129,7 +129,7 @@
       </div>
       <div class="lookup-result is-error" id="lookup-result" role="status" aria-live="polite" aria-atomic="true">
         <span class="result-mark" aria-hidden="true">!</span>
-        <p>名錄尚未啟用或無法確認，目前不能核實任何 ID。完成私密名錄與安全設定前，不會回覆「沒有在免簽名單之內」。</p>
+        <p>名錄尚未啟用或無法確認，目前不能核實任何 ID。完成有效名錄與安全設定前，不會回覆「沒有在免簽名單之內」。</p>
       </div>
       <p class="lookup-disclaimer">ID 有效不代表自動適用免簽。目的地仍須依來源參與方、旅行目的、日期、有效互惠協議與例外判斷；查驗結果不保證個案一定獲准入境。</p>
     </section>
@@ -153,8 +153,8 @@
         <h2 id="rules-title">查驗原則與資料邊界</h2>
       </div>
       <div class="principles-list">
-        <article><span>01</span><div><h3>不公開護照資料</h3><p>護照只供授權承辦人私下核驗；公開查驗不接收、不展示護照號碼、影像或其他證件資料。</p></div></article>
-        <article><span>02</span><div><h3>不公開姓名或整份名錄</h3><p>公開端只以單筆 ID 回覆有效性，不回傳姓名、國家、原始 ID 或可下載名錄。</p></div></article>
+        <article><span>01</span><div><h3>不在網站查驗中收集護照</h3><p>護照只供授權承辦人依受控流程核驗；網站不接收、不展示護照號碼或影像。</p></div></article>
+        <article><span>02</span><div><h3>網站回覆只含 ID 狀態</h3><p>API 不回傳姓名、國家或整份名錄；但目前來源 CSV 是公開可讀，連結持有者能檢視其所有欄位。請勿在其中存放護照或未授權的敏感資料。</p></div></article>
         <article><span>03</span><div><h3>互惠不會自動擴張</h3><p>每一組參與方都要有各自有效的互惠協議；一份協議的變更不會自動改變其他協議。</p></div></article>
         <article><span>04</span><div><h3>查驗不是入境保證</h3><p>MJVS 名稱與協議不等於外交或主權承認，也不取代目的地的入境規則及個案審查。</p></div></article>
       </div>
@@ -162,8 +162,8 @@
 
     <section class="section-wrap closing-note" aria-label="網站營運狀態">
       <p class="eyebrow">SERVICE STATUS</p>
-      <h2>公開入口已建立；ID 查驗尚未啟用。</h2>
-      <p>公開網站提供申請流程與查驗入口。私密試算表認證、名錄完整性驗證及防列舉設定完成前，系統不會對任何 ID 作出有效或查無判定。本站內容依 MJVS 規章草案第 3 版整理；正式待遇以雙方已生效協議與正式公告為準。</p>
+      <h2>公開入口已建立；查驗依名錄與安全狀態啟用。</h2>
+      <p>目前 CSV 沒有有效記錄，且 Turnstile／限流保護尚未完成，所以系統不會對任何 ID 作出有效或查無判定。名錄為空、欄位不完整或任何安全服務不可用時，只會回覆「名錄尚未啟用／無法確認」。本站內容依 MJVS 規章草案第 3 版整理；正式待遇以雙方已生效協議與正式公告為準。</p>
     </section>
   </main>
 

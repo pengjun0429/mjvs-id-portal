@@ -11,11 +11,10 @@ function json(payload, status = 200) {
 
 function isConfigured(env) {
   return env?.MJVS_PUBLIC_LOOKUP_ENABLED === "true"
-    && Boolean(env?.MJVS_SPREADSHEET_ID)
-    && Boolean(env?.MJVS_GOOGLE_SERVICE_ACCOUNT_JSON)
     && Boolean(env?.TURNSTILE_SITE_KEY)
     && Boolean(env?.TURNSTILE_SECRET_KEY)
-    && Boolean(env?.LOOKUP_RATE_LIMIT_PEPPER)
+    && typeof env?.LOOKUP_RATE_LIMIT_PEPPER === "string"
+    && env.LOOKUP_RATE_LIMIT_PEPPER.length >= 32
     && Boolean(env?.LOOKUP_RATE_LIMITER);
 }
 

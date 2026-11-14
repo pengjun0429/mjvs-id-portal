@@ -1,27 +1,27 @@
 # MJVS 免簽 ID 申請與查驗入口
 
-這是 MJVS 的公開網站入口，整理參與方申請、逐一互惠、兩種 ID 建立方式及單筆查驗流程。公開靜態資產只部署 `site/`；Pages Functions 位於專案根層 `functions/`。唯一權威名錄是 MJVS 管理的私密 Google 試算表；本專案不使用 D1，也不把試算表或名單提交至公開 repository。
+這是 MJVS 的公開網站入口，整理參與方申請、逐一互惠、兩種 ID 建立方式及單筆查驗流程。公開靜態資產只部署 `site/`；Pages Functions 位於專案根層 `functions/`。唯一查驗來源是使用者指定的 Google 試算表，本專案以 Google Visualization CSV query 只請求 A/E 兩欄，不使用 D1，也不將名錄資料複製進 Git repository。
+
+**資料可見性：**目前試算表設定為「知道連結的人可以檢視」。CSV 包含 `id`、`country_name`、`registered_name`、`public_name_authorized`、`status` 五欄；任何取得連結的人都能直接下載整份表格。網站 API 只使用 ID 與 status 判斷，不回傳姓名或國家，但這不會讓來源試算表變成私密。不要把護照號碼、護照影像或其他未授權敏感資料放進這份表格。
 
 網站流程依工作區提供的《MJVS_規章與流程.md》第 3 版草案整理。加入 MJVS 不會自動與所有參與方互免；至少一份有效互惠協議才可登記為免簽國，且協議範圍、目的、停留期限、生效日與例外依個別協議。若已無有效協議，該身分暫停。網站內容不等於規章已正式通過、外交承認或入境保證。
 
 ## 公開查驗的回覆範圍
 
-`POST /api/lookup` 一次只接受一個 ID。啟用後只回覆該 ID 是否有效；查無有效記錄時顯示「沒有在免簽名單之內」。名錄未啟用、空白、欄位錯誤、權限不足或任何上游服務故障時，一律回覆 503「名錄尚未啟用或無法確認」，不會將無法確認誤報成查無。
+`POST /api/lookup` 一次只接受一個 ID。名錄有效且 `status=active` 時只回覆有效；有至少一筆格式有效的記錄但 ID 不存在或狀態為 suspended/revoked 時，顯示「沒有在免簽名單之內」。CSV 沒有資料列、欄位或資料格式錯誤、上游讀取失敗、Turnstile／限流保護未就緒，或其他狀態無法核實時，一律回覆 503「名錄尚未啟用或無法確認」，不會把空白名錄誤報為查無。
 
-後端只向私密試算表讀取 `名錄!A`（`id`）與 `名錄!E`（`status`）兩欄；不讀取姓名、國家或其他欄位，也不將 ID 放入網址、瀏覽器儲存空間、公開回應或應用程式日誌。公開端沒有搜尋整表、批次查詢、下載或管理介面。只接受 `active`、`suspended`、`revoked` 狀態；重複、格式錯誤或不完整資料會使名錄 fail closed。ID 欄需在 Sheets 中設為純文字，以免前導零或長 ID 被試算表轉型。
+後端以 Google Visualization CSV query `select A,E` 只請求 `id` 與 `status` 兩欄，因此不下載姓名、國家或其他欄位；回應、日誌、URL 與瀏覽器儲存空間也不包含個人資料。公開網站沒有列表、下載、批次查詢或管理端點。接受 `active`、`suspended`、`revoked` 狀態；重複 ID、欄位錯誤、不完整資料或超過 5,000 筆上限會 fail closed。ID 欄應設為純文字，避免前導零或長 ID 被試算表轉型。注意：一般公開 CSV 匯出連結仍可供任何連結持有者下載整份表格；本 API 僅對 Google 查詢端點選取 A/E 欄。
 
-## 正式啟用前必須完成
+在本次部署前驗證的 A/E 兩欄 CSV query 回應為 HTTP 200、標頭為 `id,status`，但 **目前 0 筆名錄資料**。因此就算來源可讀，查驗仍須顯示「名錄尚未啟用／無法確認」。目前正式環境也尚未完成 Turnstile 與限流 Worker 綁定；功能預設關閉，不會對任何 ID 回覆有效或查無。
 
-目前正式網站的查驗功能預設關閉，且 PORTIFY Pages 專案尚無 Google／Turnstile secret。先前工作階段的 Google Workspace 讀取授權回傳 401，無法用目前 connector 直接讀取這份私密試算表；因此不能聲稱已能查真實 ID。
+## 啟用前必須完成
 
-要啟用，需先完成以下最小設定：
+1. 在官方試算表填入至少一筆真實且經核對的 ID/status 資料；ID 必須唯一，status 僅能為 `active`、`suspended` 或 `revoked`。因原始表格可由連結持有者完整讀取，本專案不會自行產生或提交真實資料。
+2. 建立正式網域的 Cloudflare Turnstile widget，並在 Pages 設定 `TURNSTILE_SITE_KEY`（公開 site key）及 secret `TURNSTILE_SECRET_KEY`。伺服器驗證 Siteverify 成功、hostname 與 `mjvs_lookup` action。
+3. 部署 `rate-limiter/` 中的 Durable Object Worker，並將它綁定至 Pages Function 名稱 `LOOKUP_RATE_LIMITER`；以隨機至少 32 字元 secret 設定 `LOOKUP_RATE_LIMIT_PEPPER`。限流器以 HMAC 後來源 IP key 限制每分鐘最多 10 次，不保存原始 IP。Pages 專案目前尚無此 binding；現有 PORTIFY token 僅 Pages Write，未具備部署／綁定 Worker 所需權限。
+4. 完成前述資料與安全檢查後，才在 Cloudflare Pages 設定 `MJVS_PUBLIC_LOOKUP_ENABLED=true`。名錄為空、Turnstile／限流缺失或來源異常時，程式仍會 fail closed。
 
-1. 在 Google Cloud 建立專用 service account、啟用 Sheets API，並將該帳號以 **Viewer** 身分只分享給官方私密試算表。不要公開 Sheet，也不要授予整個網域或 Editor 權限。提供 service-account JSON key 後，將其只存為 Cloudflare Pages secret `MJVS_GOOGLE_SERVICE_ACCOUNT_JSON`；程式只要求 `https://www.googleapis.com/auth/spreadsheets.readonly` scope。
-2. 在 Pages 環境設定 `MJVS_SPREADSHEET_ID`、`TURNSTILE_SITE_KEY`（公開 site key）及 secret `TURNSTILE_SECRET_KEY`。Turnstile widget 需允許正式 Pages 主機名及要使用的 preview 主機名；伺服器會檢查 Siteverify 成功、hostname 及 `mjvs_lookup` action。
-3. 部署 `rate-limiter/` 中的 Durable Object Worker，並將它以 `LOOKUP_RATE_LIMITER` 綁定至 Pages Function；另以 Pages secret 設定隨機 `LOOKUP_RATE_LIMIT_PEPPER`。限流器按 HMAC 後的來源 IP hash 限制每分鐘最多 10 次，不保存原始 IP。Cloudflare Pages 文件沒有列出原生 Rate Limiting binding，因此本專案使用獨立 Durable Object；目前既有 PORTIFY token 只有 Pages Write，不能完成 Worker 部署／綁定。
-4. 完成正式名錄填寫、逐筆核對、確認 ID 不可預測且不是連號後，才在 Cloudflare Pages 設定 `MJVS_PUBLIC_LOOKUP_ENABLED=true`。名錄為空或不完整時，API 仍會回覆無法確認。不要把任何真實 ID、姓名、護照或名單放入 GitHub、測試 fixture 或公開文件。
-
-所需 Cloudflare 設定值名稱已寫在程式及本文件中，但目前沒有任何真實 Google、Turnstile 或名錄資料存於 repository。服務端 Google key、Turnstile secret、限流 pepper 不可放進 `site/`、`wrangler.jsonc` 或公開原始碼。
+不要把真實 ID、名單或護照資料放入公開 GitHub repository、測試 fixture 或公開文件。若未來要讓整份名錄不再公開，需要將試算表改回私密，將本程式改為 Google Sheets API 的服務端唯讀授權，並同步修改資料讀取方式。
 
 ## 本機檢查與部署
 
@@ -43,9 +43,7 @@ Cloudflare Pages 專案採 Direct Upload、沒有連接 GitHub 自動部署。�
 
 ## 官方技術文件
 
-- [Google Sheets API OAuth scopes](https://developers.google.com/workspace/sheets/api/scopes) — 使用唯讀 `spreadsheets.readonly` scope。
-- [Google Cloud credentials](https://developers.google.com/workspace/guides/create-credentials) — service account 憑證管理參考。
 - [Cloudflare Turnstile client-side rendering](https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/) 與 [server-side validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/) — 每次 token 都需伺服器端驗證；token 單次使用且 5 分鐘到期。
 - [Cloudflare Pages Functions bindings](https://developers.cloudflare.com/pages/functions/bindings/) 與 [Wrangler configuration](https://developers.cloudflare.com/pages/functions/wrangler-configuration/) — Pages Function 綁定與設定參考。
-- [Cloudflare Workers Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) — Worker Runtime 的限制說明；Pages Functions bindings 清單未提供原生 Rate Limiting binding，因此需額外的 Durable Object 或自有網域 WAF 規則。
-- [Cloudflare Workers secrets](https://developers.cloudflare.com/workers/configuration/secrets/) — 憑證只存 Cloudflare secret，不進公開原始碼。
+- [Cloudflare Workers Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) — Worker Runtime 的限制說明；Pages Functions bindings 清單未提供原生 Rate Limiting binding，因此本專案使用獨立 Durable Object。
+- [Cloudflare Workers secrets](https://developers.cloudflare.com/workers/configuration/secrets/) — Turnstile secret 與限流 pepper 只存 Cloudflare secret，不進公開原始碼。

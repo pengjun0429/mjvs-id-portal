@@ -8,27 +8,13 @@ const configSource = await readFile(new URL("../functions/api/config.js", import
 const { onRequest } = await import(`data:text/javascript;base64,${Buffer.from(lookupSource).toString("base64")}`);
 const { onRequest: onConfigRequest } = await import(`data:text/javascript;base64,${Buffer.from(configSource).toString("base64")}`);
 
-const generated = await crypto.subtle.generateKey(
-  { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-  true,
-  ["sign", "verify"],
-);
-const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", generated.privateKey));
-const pemBody = Buffer.from(pkcs8).toString("base64").match(/.{1,64}/g).join("\n");
-const testServiceAccount = JSON.stringify({
-  client_email: "mjvs-test-only@example.iam.gserviceaccount.com",
-  private_key: `-----BEGIN PRIVATE KEY-----\n${pemBody}\n-----END PRIVATE KEY-----\n`,
-});
-
-const headers = [
-  { range: "'名錄'!A1:A5002", values: [["id"], ["TEST-ONLY-ID-0000000000000001"]] },
-  { range: "'名錄'!E1:E5002", values: [["status"], ["active"]] },
-];
-let sheetFixture = headers;
+const REGISTRY_CSV_URL_PATH = "/spreadsheets/d/1A6Pcriu-xDtgUSM0oPHx362QApUg_-KkSmCmK_FUVFU/gviz/tq";
+const validHeaders = "id,status";
+let registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,active\n`;
+let csvResponseOk = true;
+let csvContentType = "text/csv; charset=utf-8";
 let siteverifyResult = { success: true, hostname: "mjvs.test", action: "mjvs_lookup" };
-let sheetResponseOk = true;
-let fetchedRanges = [];
-let googleCalls = 0;
+let csvCalls = 0;
 
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -55,11 +41,9 @@ function mockLimiter({ allowed = true } = {}) {
 
 const baseEnv = () => ({
   MJVS_PUBLIC_LOOKUP_ENABLED: "true",
-  MJVS_SPREADSHEET_ID: "test-only-sheet-id",
-  MJVS_GOOGLE_SERVICE_ACCOUNT_JSON: testServiceAccount,
   TURNSTILE_SITE_KEY: "test-only-public-site-key",
   TURNSTILE_SECRET_KEY: "test-only-turnstile-secret",
-  LOOKUP_RATE_LIMIT_PEPPER: "test-only-random-pepper",
+  LOOKUP_RATE_LIMIT_PEPPER: "test-only-pepper-0123456789-32plus",
   LOOKUP_RATE_LIMITER: mockLimiter(),
 });
 
@@ -84,19 +68,18 @@ globalThis.fetch = async (resource, options = {}) => {
     }
     return jsonResponse(siteverifyResult, 200);
   }
-  if (url.hostname === "oauth2.googleapis.com") {
-    googleCalls += 1;
-    const form = new URLSearchParams(options.body);
-    assert.equal(form.get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer");
-    assert.ok(form.get("assertion"));
-    return jsonResponse({ access_token: "test-only-google-access-token", expires_in: 3600 }, 200);
-  }
-  if (url.hostname === "sheets.googleapis.com") {
-    googleCalls += 1;
-    assert.match(url.pathname, /\/values:batchGet$/);
-    assert.equal(options.headers.Authorization, "Bearer test-only-google-access-token");
-    fetchedRanges = url.searchParams.getAll("ranges");
-    return jsonResponse(sheetResponseOk ? { valueRanges: sheetFixture } : { error: "upstream failure" }, sheetResponseOk ? 200 : 503);
+  if (url.hostname === "docs.google.com") {
+    csvCalls += 1;
+    assert.equal(url.pathname, REGISTRY_CSV_URL_PATH);
+    assert.equal(url.searchParams.get("tqx"), "out:csv");
+    assert.equal(url.searchParams.get("gid"), "1037470539");
+    assert.equal(url.searchParams.get("tq"), "select A,E");
+    assert.equal(options.method, "GET");
+    assert.equal(options.headers.Accept, "text/csv");
+    return new Response(csvResponseOk ? registryCsv : "upstream unavailable", {
+      status: csvResponseOk ? 200 : 503,
+      headers: { "Content-Type": csvContentType },
+    });
   }
   throw new Error(`Unexpected test fetch host: ${url.hostname}`);
 };
@@ -109,14 +92,17 @@ try {
   const configured = await onConfigRequest({ request: new Request("https://mjvs.test/api/config"), env: baseEnv() });
   assert.deepEqual(await configured.json(), { lookupEnabled: true, turnstileSiteKey: "test-only-public-site-key" });
 
-  const missingPrivateSetup = await onRequest({ request: makeRequest(), env: {} });
-  assert.equal(missingPrivateSetup.status, 503);
-  assert.equal((await missingPrivateSetup.json()).error, "registry_not_ready");
+  const unavailableConfig = await onRequest({ request: makeRequest(), env: {} });
+  assert.equal(unavailableConfig.status, 503);
+  assert.equal((await unavailableConfig.json()).error, "registry_not_ready");
 
   const noLimiter = baseEnv();
   delete noLimiter.LOOKUP_RATE_LIMITER;
   const noLimiterResponse = await onRequest({ request: makeRequest(), env: noLimiter });
   assert.equal(noLimiterResponse.status, 503);
+
+  const shortPepper = { ...baseEnv(), LOOKUP_RATE_LIMIT_PEPPER: "too-short" };
+  assert.equal((await onRequest({ request: makeRequest(), env: shortPepper })).status, 503);
 
   const wrongMethod = await onRequest({ request: makeRequest({ method: "GET" }), env: baseEnv() });
   assert.equal(wrongMethod.status, 405);
@@ -131,33 +117,35 @@ try {
   assert.equal(rateLimited.status, 429);
   assert.equal(rateLimited.headers.get("Retry-After"), "30");
 
+  const csvCallsBeforeCaptcha = csvCalls;
   siteverifyResult = { success: false, hostname: "mjvs.test", action: "mjvs_lookup" };
   const invalidCaptcha = await onRequest({ request: makeRequest(), env: baseEnv() });
   assert.equal(invalidCaptcha.status, 403);
-  const googleCallsBeforeValidCaptcha = googleCalls;
+  assert.equal(csvCalls, csvCallsBeforeCaptcha);
+
   siteverifyResult = { success: true, hostname: "other.test", action: "mjvs_lookup" };
   const wrongHostname = await onRequest({ request: makeRequest(), env: baseEnv() });
   assert.equal(wrongHostname.status, 403);
-  assert.equal(googleCalls, googleCallsBeforeValidCaptcha);
   siteverifyResult = { success: true, hostname: "mjvs.test", action: "mjvs_lookup" };
 
-  sheetFixture = [
-    { range: "'名錄'!A1:A5002", values: [["id"]] },
-    { range: "'名錄'!E1:E5002", values: [["status"]] },
-  ];
+  registryCsv = `${validHeaders}\n`;
   const emptyRegistry = await onRequest({ request: makeRequest(), env: baseEnv() });
   assert.equal(emptyRegistry.status, 503);
   assert.equal((await emptyRegistry.json()).error, "registry_not_ready");
 
-  sheetFixture = headers;
+  registryCsv = `${validHeaders}\n\n`;
+  const onlyBlankRows = await onRequest({ request: makeRequest(), env: baseEnv() });
+  assert.equal(onlyBlankRows.status, 503);
+
+  registryCsv = `${validHeaders}\r\nTEST-ONLY-ID-0000000000000001,active\r\n`;
   const valid = await onRequest({ request: makeRequest(), env: baseEnv() });
   assert.equal(valid.status, 200);
   const validBody = await valid.json();
   assert.equal(validBody.valid, true);
   assert.equal(JSON.stringify(validBody).includes("TEST-ONLY-ID"), false);
+  assert.deepEqual(Object.keys(validBody).sort(), ["message", "valid"]);
   assert.equal("name" in validBody, false);
   assert.equal("country" in validBody, false);
-  assert.deepEqual(fetchedRanges, ["'名錄'!A1:A5002", "'名錄'!E1:E5002"]);
 
   const unknown = await onRequest({
     request: makeRequest({ body: { id: "TEST-ONLY-UNKNOWN-0000000000000001", captchaToken: "test-only-token" } }),
@@ -165,36 +153,37 @@ try {
   });
   assert.deepEqual(await unknown.json(), { valid: false, message: "沒有在免簽名單之內" });
 
-  sheetFixture = [
-    { range: "'名錄'!A1:A5002", values: [["id"], ["TEST-ONLY-ID-0000000000000001"]] },
-    { range: "'名錄'!E1:E5002", values: [["status"], ["suspended"]] },
-  ];
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,suspended\n`;
   const suspended = await onRequest({ request: makeRequest(), env: baseEnv() });
   assert.deepEqual(await suspended.json(), { valid: false, message: "沒有在免簽名單之內" });
 
-  sheetFixture = [
-    { range: "'名錄'!A1:A5002", values: [["id"], ["TEST-ONLY-ID-0000000000000001"]] },
-    { range: "'名錄'!E1:E5002", values: [["wrong-header"], ["active"]] },
-  ];
-  const malformedRegistry = await onRequest({ request: makeRequest(), env: baseEnv() });
-  assert.equal(malformedRegistry.status, 503);
+  registryCsv = "id,wrong_status\nTEST-ONLY-ID-0000000000000001,active\n";
+  assert.equal((await onRequest({ request: makeRequest(), env: baseEnv() })).status, 503);
 
-  sheetFixture = headers;
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,active\nTEST-ONLY-ID-0000000000000001,active\n`;
+  assert.equal((await onRequest({ request: makeRequest(), env: baseEnv() })).status, 503);
+
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,active\n`;
   const missingIp = await onRequest({ request: makeRequest({ includeIp: false }), env: baseEnv() });
   assert.equal(missingIp.status, 503);
 
-  sheetResponseOk = false;
+  csvResponseOk = false;
   const upstreamFailure = await onRequest({ request: makeRequest(), env: baseEnv() });
   assert.equal(upstreamFailure.status, 503);
-  sheetResponseOk = true;
+  csvResponseOk = true;
+
+  csvContentType = "text/html; charset=utf-8";
+  const htmlInsteadOfCsv = await onRequest({ request: makeRequest(), env: baseEnv() });
+  assert.equal(htmlInsteadOfCsv.status, 503);
+  csvContentType = "text/csv; charset=utf-8";
 
   const lookupPage = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
   const frontend = await readFile(new URL("../site/app.js", import.meta.url), "utf8");
+  assert.match(lookupPage, /任何取得試算表連結的人都能檢視整份表格/);
   assert.match(lookupPage, /沒有在免簽名單之內/);
-  assert.doesNotMatch(lookupPage, /registeredName|registered_name|個人姓名/);
   assert.doesNotMatch(frontend, /registeredName|registered_name|\.country/);
 
-  console.log("MJVS ID-only lookup tests passed (no real IDs, names, or countries used).");
+  console.log("MJVS two-column public-CSV ID/status lookup tests passed (no real IDs, names, or countries used).");
 } finally {
   globalThis.fetch = originalFetch;
 }
