@@ -1,38 +1,36 @@
 # MJVS 免簽 ID 申請與查驗網站
 
-這是依《聯合微國家免簽中心組織規章》第 3 版草案製作的前端示範原型，使用原生 HTML、CSS、JavaScript，可直接以靜態網站部署至 Cloudflare Pages。
+本站依《聯合微國家免簽中心組織規章》第 3 版草案延續製作，保留參與方申請、逐一互惠、個人 ID 申請／名單發放說明、公開查驗及協議原則等既有頁面。靜態網站位於 `site/`；Pages Function 位於專案根層 `functions/`；D1 schema migration 位於 `migrations/`，不會部署成公開靜態檔案。
 
-## 介面涵蓋
+## 查驗回覆
 
-- 參與方在 DC 提出申請、資料完整性檢查、逐一協商互惠、通過與公告生效的流程。
-- 免簽國資格須至少有一份生效中的互惠協議；加入 MJVS 不會自動與所有參與方互免。
-- 個人持護照向 MJVS 申請 ID，或由參與方透過私人受控渠道交付 ID 名單兩種建立方式。
-- 公開查驗的預期範圍：單筆 ID 登記狀態與對應目的地的互惠條件；不公開護照資料或整份 ID 名單。
-- 協議適用範圍、目的、停留上限、生效日期和例外依個別協議；協議失效/暫停與免簽國狀態依規章判斷。
-- 明確提醒 ID 或互惠安排不構成外交／主權承認，也不保證個案入境。
+`POST /api/lookup` 接收單一 ID。若名錄已啟用，且找到有效、已授權公開姓名的記錄，只回傳 `country` 與 `registeredName`；查無記錄時回傳「沒有在免簽名單之內」。不提供姓名或國家搜尋、不提供批次／名單 endpoint，亦不回傳護照或原始 ID。
 
-## 示範與隱私邊界
+ID 先以伺服器端 `ID_LOOKUP_PEPPER` 做 HMAC-SHA-256，再以摘要查詢；資料庫不保存原始 ID。個人 ID 查驗頁不把 ID 放入 URL，使用同源 POST、`Cache-Control: no-store`，前端以 `textContent` 顯示姓名，避免把資料當 HTML 執行。只有 `public_name_authorized=1` 的資料才會回傳姓名與國家。
 
-- 本站沒有後端、資料庫、登入、申請提交、名單匯入或正式查驗 API。
-- 預設示範代碼 `DEMO-ONLY-NOT-VALID` 是虛構且無效的，不是實際 ID。
-- 其他輸入只會顯示「尚未連接正式資料庫」提示。所有查驗互動留在瀏覽器記憶體，不使用 `localStorage`、Cookie、第三方分析、遠端字型或網路請求。
-- 請勿輸入或上傳護照、個人資料、實際 ID 或名單。
-- 示範互惠雙方名稱為虛構範例，狀態為「無有效協議」，不代表現行協議或免簽國。
+資料表初始的 `registry_control.is_ready` 為 `0`。未建立／綁定 D1、金鑰缺少、尚未完成資料匯入或資料庫故障時，API 回傳 503「名錄尚未啟用／無法確認」，不會把空名錄誤報為「沒有在免簽名單之內」。只有完成資料匯入、對帳及啟用程序後，管理者才應把名錄標記為 ready。
 
-## 本機預覽與檢查
+預設示範碼 `DEMO-ONLY-NOT-VALID` 是虛構且明確無效的；它只在瀏覽器顯示「沒有在免簽名單之內」的示範結果，不會送到 API，也不代表任何實際 ID、國家或協議。網站目前沒有任何真實 ID、姓名或護照資料。
 
-可用任一靜態檔案伺服器直接預覽此資料夾。專案不需安裝依賴或執行建置。
+## 正式啟用前需要完成
+
+目前 PORTIFY 帳戶沒有 MJVS D1 資料庫，因此正式名錄不能查詢。需先建立 PORTIFY 專用 D1 並套用 `migrations/0001_id_registry.sql`，把名為 `DB` 的 D1 binding 設給 Pages Function 的 preview 與 production 環境，並以 Pages secret 設定隨機 `ID_LOOKUP_PEPPER`。現有 Cloudflare 憑證只授予 PORTIFY Pages Write，不能建立或寫入 D1；`fumo_cloudflare_d1_token` 只供 FUMO 帳戶，不可挪用。建立資料庫／執行 migration 需另有僅授予 PORTIFY D1 Edit／Write 的權限。
+
+建立 D1 前還需要確認資料儲存區域；台灣使用者可先考慮 APAC 作為主要位置提示，但這不等於嚴格資料在地化保證。還需由 MJVS 提供可透過安全私密管道匯入的正式資料，每筆至少含 ID、國家、註冊姓名、狀態及姓名可公開查驗的授權；不要把名單提交到公開 GitHub repo。ID 應使用高熵、不可順序猜測的識別碼，並在啟用公開查驗前配置 API 速率限制及防列舉措施。本站尚未實作管理員登入或名單匯入介面，亦未設定正式維運、稽核與資料保留政策。
+
+免簽適用仍須依來源國、目的地、旅行目的、日期、有效協議與例外個別判斷；查到有效 ID 不代表有互惠安排，也不保證個案一定獲准入境。此網站不代表規章草案已正式通過。
+
+## 本機檢查與部署
+
+靜態頁面可用 `python3 -m http.server 8080 --directory site` 預覽。Pages Functions 需要 Wrangler Pages runtime；部署前需在本機有對應的 Cloudflare 憑證。
 
 ```sh
-python3 -m http.server 8080 --directory .
+node tests/lookup.test.mjs
+npx wrangler pages deploy ./site --project-name mjvs-id-portal --branch mjvs-preview
 ```
 
-`_headers` 設定部署後的基本安全標頭，包含禁止跨站框架嵌入及禁止本站 JavaScript 發出網路連線的 CSP。部署時只上傳本專案資料夾，不要上傳上層工作區。
-
-## 上線前仍須建置
-
-正式服務還需完成管理員與發行方權限、加密資料庫及金鑰管理、私密申請/名單交付、資料最小化與保留政策、不可竄改稽核紀錄、速率限制、防列舉、正式查驗 API、申請聯絡管道與維運程序。正式啟用前須進行安全與隱私檢查。
+Cloudflare Pages 專案採 Direct Upload，沒有連接 GitHub 自動部署；每次更新需重新部署。只部署 `site/` 靜態目錄，Functions 會從專案根層 `functions/` 讀取，`migrations/` 不會公開。
 
 ## 規章參考
 
-依工作區提供的《MJVS_規章與流程.md》第 3 版草案：第二章（第 3–4 條）、第四章（第 7–9 條）、第五章（第 10–11 條）、第六章（第 12–13 條）及附錄一、附錄二。此網站不代表草案已正式通過。
+依工作區提供的《MJVS_規章與流程.md》第 3 版草案：第二章（第 3–4 條）、第四章（第 7–9 條）、第五章（第 10–11 條）、第六章（第 12–13 條）及附錄一、附錄二。

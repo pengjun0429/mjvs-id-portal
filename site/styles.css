@@ -87,14 +87,24 @@ h1 { max-width: 760px; margin-bottom: 18px; font-size: clamp(42px, 6.4vw, 68px);
 .lookup-row input::placeholder { color: #707a7f; }
 .button-plain { min-width: 118px; padding: 9px 15px; border: 1px solid #c8e7f4; border-radius: 0; background: #d8edf5; color: #102a35; cursor: pointer; font-size: 14px; font-weight: 650; }
 .button-plain:hover { background: #fff; }
+.button-plain:disabled { cursor: wait; opacity: .68; }
 .field-help { margin: 8px 0 7px; color: #d5e0e4; font-size: 12px; }
 .example-button { padding: 0; border: 0; background: none; color: #c6e7f4; cursor: pointer; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
 .example-button:hover { color: #fff; }
 .lookup-result { display: flex; gap: 12px; max-width: 690px; margin-top: 26px; padding: 15px 0; border-top: 1px solid #46606a; border-bottom: 1px solid #46606a; }
 .result-mark { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border: 1px solid #a7d3e7; border-radius: 50%; color: #c9e6f1; font-size: 12px; font-weight: 700; }
 .lookup-result p { margin: 0; color: #e6eef1; font-size: 14px; }
+.lookup-result.is-record .result-mark { color: #b6e9cb; border-color: #b6e9cb; }
+.lookup-result.is-error .result-mark { color: #ffd3c8; border-color: #ffd3c8; }
 .lookup-result.is-example { align-items: flex-start; }
 .lookup-result.is-example .result-mark { color: #ffe4a5; border-color: #ffe4a5; }
+.lookup-result.is-loading { opacity: .82; }
+.lookup-record { min-width: 0; flex: 1; }
+.lookup-result .lookup-result-heading { margin-bottom: 12px; color: #fff; font-weight: 650; }
+.lookup-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; }
+.lookup-fields > div { min-width: 0; padding-top: 10px; border-top: 1px solid #46606a; }
+.lookup-fields dt { margin-bottom: 4px; color: #bfd3da; font-size: 12px; }
+.lookup-fields dd { margin: 0; color: #fff; font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
 .lookup-disclaimer { max-width: 810px; margin: 18px 0 0; color: #cad7dc; font-size: 13px; }
 .arrangement-demo { padding: 20px 0 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .arrangement-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 19px; }
@@ -151,6 +161,7 @@ h1 { max-width: 760px; margin-bottom: 18px; font-size: clamp(42px, 6.4vw, 68px);
   .process-list p { font-size: 13px; }
   .lookup-row { align-items: stretch; flex-direction: column; }
   .button-plain { min-height: 45px; }
+  .lookup-fields { grid-template-columns: 1fr; gap: 10px; }
   .arrangement-pair { gap: 10px; font-size: 18px; }
   .arrangement-details { gap: 14px; }
   .principles-list article { grid-template-columns: 38px 1fr; gap: 8px; }

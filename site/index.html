@@ -113,22 +113,22 @@
 
     <section class="section-wrap section-block section-dark" id="verify" aria-labelledby="verify-title">
       <div class="section-heading">
-        <p class="eyebrow">04 / PUBLIC LOOKUP · DEMO</p>
+        <p class="eyebrow">04 / PUBLIC LOOKUP</p>
         <h2 id="verify-title">公開查驗</h2>
-        <p>正式服務預期以單筆 ID 回覆有效性，以及該目的地目前適用的互惠安排。請勿在查詢欄輸入護照號碼、姓名或其他個人資料。</p>
+        <p>查得有效且已完成公開授權的 ID，只顯示登記國家與註冊姓名；查無記錄時顯示「沒有在免簽名單之內」。不公開護照資料或整份 ID 名單。</p>
       </div>
-      <div class="lookup-form" role="search" aria-label="示範 ID 查驗">
+      <div class="lookup-form" role="search" aria-label="MJVS ID 單筆查驗">
         <label for="id-number">個人 ID</label>
         <div class="lookup-row">
-          <input id="id-number" name="id-number" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="例如：DEMO-ONLY-NOT-VALID" aria-describedby="lookup-help">
-          <button class="button-plain" type="button" id="lookup-button">查驗示範</button>
+          <input id="id-number" name="id-number" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="128" placeholder="輸入個人 ID" aria-describedby="lookup-help">
+          <button class="button-plain" type="button" id="lookup-button">查驗 ID</button>
         </div>
-        <p class="field-help" id="lookup-help">僅接受下方列出的虛構示範碼；本工具不連接真實登記資料。</p>
-        <button class="example-button" type="button" id="fill-example">填入示範 ID：DEMO-ONLY-NOT-VALID</button>
+        <p class="field-help" id="lookup-help">正式名錄尚未啟用。只輸入個人 ID，不要輸入護照號碼或其他個資；名錄未準備好時不會把空名錄誤報為「不在名單內」。</p>
+        <button class="example-button" type="button" id="fill-example">填入明確無效示範碼：DEMO-ONLY-NOT-VALID</button>
       </div>
       <div class="lookup-result" id="lookup-result" role="status" aria-live="polite" aria-atomic="true">
         <span class="result-mark" aria-hidden="true">i</span>
-        <p>輸入示範 ID 後，這裡會顯示虛構的查驗結果。查詢不會傳送或儲存資料。</p>
+        <p>正式名錄尚未啟用。此頁目前不能核實真實 ID；只有查到已啟用的單筆記錄時才會顯示國家與註冊姓名。</p>
       </div>
       <p class="lookup-disclaimer">即使正式系統查得 ID 有效，是否適用免簽仍須依「目的地 × 來源參與方 × 旅行目的 × 日期」核對有效協議與例外；ID 或協議都不保證個案一定獲准入境。</p>
     </section>

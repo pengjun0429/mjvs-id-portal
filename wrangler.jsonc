@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "mjvs-id-portal",
+  "pages_build_output_dir": "./site",
+  "compatibility_date": "2026-11-14"
+  // A PORTIFY D1 binding is intentionally not configured until the database and region are approved.
+}
