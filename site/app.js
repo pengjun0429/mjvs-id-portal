@@ -2,14 +2,12 @@
   const input = document.querySelector("#id-number");
   const output = document.querySelector("#lookup-result");
   const lookupButton = document.querySelector("#lookup-button");
-  const widgetContainer = document.querySelector("#turnstile-widget");
+  const serviceStatus = document.querySelector("#service-status-headline");
+  const lookupHelp = document.querySelector("#lookup-help");
 
-  if (!input || !output || !lookupButton || !widgetContainer) return;
+  if (!input || !output || !lookupButton) return;
 
   let lookupEnabled = false;
-  let captchaToken = "";
-  let turnstile = null;
-  let widgetId = null;
   let checking = false;
 
   const clearResultClasses = () => {
@@ -35,70 +33,34 @@
 
   const updateControls = () => {
     input.disabled = !lookupEnabled || checking;
-    lookupButton.disabled = !lookupEnabled || checking || !captchaToken || !input.value.trim();
+    lookupButton.disabled = !lookupEnabled || checking || !input.value.trim();
   };
 
-  const loadTurnstile = (siteKey) => new Promise((resolve, reject) => {
-    if (window.turnstile) {
-      resolve(window.turnstile);
-      return;
-    }
-
-    const existing = document.querySelector("script[data-mjvs-turnstile]");
-    const script = existing || document.createElement("script");
-    const onLoad = () => window.turnstile ? resolve(window.turnstile) : reject(new Error("widget_unavailable"));
-    const onError = () => reject(new Error("widget_unavailable"));
-
-    script.addEventListener("load", onLoad, { once: true });
-    script.addEventListener("error", onError, { once: true });
-    if (!existing) {
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.async = true;
-      script.defer = true;
-      script.dataset.mjvsTurnstile = "true";
-      document.head.append(script);
-    }
-  });
+  const showNotReady = (message) => {
+    lookupEnabled = false;
+    updateControls();
+    if (serviceStatus) serviceStatus.textContent = message;
+    if (lookupHelp) lookupHelp.textContent = `${message} 請勿輸入姓名、護照號碼或其他個人資料。`;
+    renderMessage(message, "error");
+  };
 
   const initialize = async () => {
     updateControls();
     try {
       const response = await fetch("/api/config", { method: "GET", credentials: "same-origin", cache: "no-store" });
       const config = response.ok ? await response.json() : null;
-      if (!config?.lookupEnabled || typeof config.turnstileSiteKey !== "string" || !config.turnstileSiteKey) {
-        renderMessage("名錄尚未啟用或安全設定未完成，目前無法確認任何 ID。", "error");
+      if (!config?.lookupEnabled) {
+        showNotReady(config?.message || "名錄尚未啟用或無法確認，目前不能查驗。");
         return;
       }
 
-      turnstile = await loadTurnstile(config.turnstileSiteKey);
-      turnstile.ready(() => {
-        widgetId = turnstile.render(widgetContainer, {
-          sitekey: config.turnstileSiteKey,
-          action: "mjvs_lookup",
-          callback: (token) => {
-            captchaToken = typeof token === "string" ? token : "";
-            updateControls();
-            if (captchaToken) renderMessage("安全驗證完成；輸入一個 ID 後即可查驗。", "info");
-          },
-          "expired-callback": () => {
-            captchaToken = "";
-            updateControls();
-            renderMessage("安全驗證已過期，請重新完成驗證。", "error");
-          },
-          "error-callback": () => {
-            captchaToken = "";
-            lookupEnabled = false;
-            updateControls();
-            renderMessage("安全驗證暫時無法使用，現在不能確認 ID。", "error");
-          },
-        });
-        lookupEnabled = true;
-        updateControls();
-      });
-    } catch {
-      lookupEnabled = false;
+      lookupEnabled = true;
       updateControls();
-      renderMessage("查驗服務尚未啟用或安全驗證無法載入，目前不能確認 ID。", "error");
+      if (serviceStatus) serviceStatus.textContent = "查驗服務已啟用。";
+      if (lookupHelp) lookupHelp.textContent = "輸入一個 ID 即可查驗。輸入只會以同源 POST 傳送，不會放入網址；不要輸入姓名、護照號碼或其他個人資料。";
+      renderMessage(config.message || "名錄已啟用，可以查驗單筆 ID。", "info");
+    } catch {
+      showNotReady("名錄目前無法讀取，暫時不能確認 ID。");
     }
   };
 
@@ -109,13 +71,11 @@
       input.focus();
       return;
     }
-    if (!lookupEnabled || !captchaToken || checking) {
-      renderMessage("名錄尚未啟用或安全驗證尚未完成，目前無法確認 ID。", "error");
+    if (!lookupEnabled || checking) {
+      renderMessage("名錄尚未啟用或無法確認，目前不能查驗 ID。", "error");
       return;
     }
 
-    const oneTimeToken = captchaToken;
-    captchaToken = "";
     checking = true;
     updateControls();
     output.setAttribute("aria-busy", "true");
@@ -125,27 +85,19 @@
       const response = await fetch("/api/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: submitted, captchaToken: oneTimeToken }),
+        body: JSON.stringify({ id: submitted }),
         credentials: "same-origin",
         cache: "no-store",
       });
       let data;
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
+      try { data = await response.json(); } catch { data = null; }
 
       if (response.status === 503) {
-        renderMessage("名錄尚未啟用或無法確認，目前不能核實此 ID。", "error");
-        return;
-      }
-      if (response.status === 429) {
-        renderMessage("查詢頻率已達限制，請稍後再試。", "error");
+        showNotReady(data?.message || "名錄尚未啟用或無法確認，目前不能核實此 ID。");
         return;
       }
       if (response.status === 403) {
-        renderMessage("安全驗證未通過，請重新完成驗證後再試。", "error");
+        renderMessage("查驗要求未獲接受，請重新載入網站後再試。", "error");
         return;
       }
       if (!response.ok) {
@@ -166,9 +118,6 @@
     } finally {
       checking = false;
       output.setAttribute("aria-busy", "false");
-      if (turnstile && widgetId !== null) {
-        try { turnstile.reset(widgetId); } catch {}
-      }
       updateControls();
     }
   };

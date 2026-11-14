@@ -3,5 +3,5 @@
   "name": "mjvs-id-portal",
   "pages_build_output_dir": "./site",
   "compatibility_date": "2026-11-14"
-  // No D1 binding is used; private Sheets and protection bindings are configured separately.
+  // The public ID/status CSV is the sole registry source; no database or protection bindings are required.
 }

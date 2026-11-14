@@ -88,7 +88,6 @@ h1 { max-width: 760px; margin-bottom: 18px; font-size: clamp(42px, 6.4vw, 68px);
 .button-plain { min-width: 118px; padding: 9px 15px; border: 1px solid #c8e7f4; border-radius: 0; background: #d8edf5; color: #102a35; cursor: pointer; font-size: 14px; font-weight: 650; }
 .button-plain:hover:not(:disabled) { background: #fff; }
 .button-plain:disabled { border-color: #9aabb2; background: #dbe2e5; color: #34464e; cursor: not-allowed; opacity: 1; }
-.turnstile-slot { min-height: 0; max-width: 100%; margin: 12px 0 4px; overflow: visible; }
 .field-help { margin: 8px 0 7px; color: #d5e0e4; font-size: 12px; }
 .lookup-result { display: flex; gap: 12px; max-width: 690px; margin-top: 26px; padding: 15px 0; border-top: 1px solid #46606a; border-bottom: 1px solid #46606a; }
 .result-mark { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border: 1px solid #a7d3e7; border-radius: 50%; color: #c9e6f1; font-size: 12px; font-weight: 700; }
