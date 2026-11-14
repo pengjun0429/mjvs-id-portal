@@ -41,7 +41,7 @@ globalThis.fetch = async (resource, options = {}) => {
   assert.equal(url.pathname, REGISTRY_CSV_URL_PATH);
   assert.equal(url.searchParams.get("tqx"), "out:csv");
   assert.equal(url.searchParams.get("gid"), "1037470539");
-  assert.equal(url.searchParams.get("tq"), "select A,E");
+  assert.equal(url.searchParams.get("tq"), "select A,B");
   assert.equal(options.method, "GET");
   assert.equal(options.headers.Accept, "text/csv");
   return new Response(csvResponseOk ? registryCsv : "upstream unavailable", {
@@ -116,6 +116,11 @@ try {
   registryCsv = "id,wrong_status\nTEST-ONLY-ID-0000000000000001,active\n";
   const invalidConfig = await onConfigRequest({ request: new Request("https://mjvs.test/api/config"), env: {} });
   assert.equal((await invalidConfig.json()).status, "invalid");
+  assert.equal((await onRequest({ request: makeRequest(), env: {} })).status, 503);
+
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,\n`;
+  const missingStatusConfig = await onConfigRequest({ request: new Request("https://mjvs.test/api/config"), env: {} });
+  assert.equal((await missingStatusConfig.json()).status, "invalid");
   assert.equal((await onRequest({ request: makeRequest(), env: {} })).status, 503);
 
   registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,active\nTEST-ONLY-ID-0000000000000001,active\n`;

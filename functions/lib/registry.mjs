@@ -1,4 +1,4 @@
-const PUBLIC_CSV_URL = "https://docs.google.com/spreadsheets/d/1A6Pcriu-xDtgUSM0oPHx362QApUg_-KkSmCmK_FUVFU/gviz/tq?tqx=out:csv&gid=1037470539&tq=select%20A%2CE";
+const PUBLIC_CSV_URL = "https://docs.google.com/spreadsheets/d/1A6Pcriu-xDtgUSM0oPHx362QApUg_-KkSmCmK_FUVFU/gviz/tq?tqx=out:csv&gid=1037470539&tq=select%20A%2CB";
 const MAX_CSV_BYTES = 2_000_000;
 const MAX_REGISTRY_ROWS = 5000;
 const VALID_STATUSES = new Set(["active", "suspended", "revoked"]);
