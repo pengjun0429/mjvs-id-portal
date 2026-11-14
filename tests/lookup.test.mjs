@@ -5,10 +5,10 @@ const helperSource = await readFile(new URL("../functions/lib/registry.mjs", imp
 const helper = await import(`data:text/javascript;base64,${Buffer.from(helperSource).toString("base64")}`);
 globalThis.__MJVS_REGISTRY_HELPER__ = helper;
 
-const lookupImport = 'import { getLookupStatus, getRegistryState, normalizeId } from "../lib/registry.mjs";';
+const lookupImport = 'import { getLookupRecord, getRegistryState, normalizeId } from "../lib/registry.mjs";';
 const configImport = 'import { getRegistryState } from "../lib/registry.mjs";';
 const lookupSource = (await readFile(new URL("../functions/api/lookup.js", import.meta.url), "utf8"))
-  .replace(lookupImport, "const { getLookupStatus, getRegistryState, normalizeId } = globalThis.__MJVS_REGISTRY_HELPER__;");
+  .replace(lookupImport, "const { getLookupRecord, getRegistryState, normalizeId } = globalThis.__MJVS_REGISTRY_HELPER__;");
 const configSource = (await readFile(new URL("../functions/api/config.js", import.meta.url), "utf8"))
   .replace(configImport, "const { getRegistryState } = globalThis.__MJVS_REGISTRY_HELPER__;");
 assert.doesNotMatch(lookupSource, /^import /m);
@@ -17,7 +17,7 @@ const { onRequest } = await import(`data:text/javascript;base64,${Buffer.from(lo
 const { onRequest: onConfigRequest } = await import(`data:text/javascript;base64,${Buffer.from(configSource).toString("base64")}`);
 
 const REGISTRY_CSV_URL_PATH = "/spreadsheets/d/1A6Pcriu-xDtgUSM0oPHx362QApUg_-KkSmCmK_FUVFU/gviz/tq";
-const validHeaders = "id,status";
+const validHeaders = "id,country_name,status";
 let registryCsv = `${validHeaders}\n`;
 let csvResponseOk = true;
 let csvContentType = "text/csv; charset=utf-8";
@@ -41,7 +41,7 @@ globalThis.fetch = async (resource, options = {}) => {
   assert.equal(url.pathname, REGISTRY_CSV_URL_PATH);
   assert.equal(url.searchParams.get("tqx"), "out:csv");
   assert.equal(url.searchParams.get("gid"), "1037470539");
-  assert.equal(url.searchParams.get("tq"), "select A,B");
+  assert.equal(url.searchParams.get("tq"), "select A,B,C");
   assert.equal(options.method, "GET");
   assert.equal(options.headers.Accept, "text/csv");
   return new Response(csvResponseOk ? registryCsv : "upstream unavailable", {
@@ -81,7 +81,7 @@ try {
   const invalidId = await onRequest({ request: makeRequest({ body: { id: "   " } }), env: {} });
   assert.equal(invalidId.status, 400);
 
-  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,active\n`;
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,TEST-ONLY-COUNTRY,active\n`;
   const readyConfig = await onConfigRequest({ request: new Request("https://mjvs.test/api/config"), env: {} });
   assert.deepEqual(await readyConfig.json(), {
     lookupEnabled: true,
@@ -94,10 +94,11 @@ try {
   const validBody = await valid.json();
   assert.equal(validBody.valid, true);
   assert.equal(validBody.message, "此 ID 有效。");
+  assert.equal(validBody.country, "TEST-ONLY-COUNTRY");
   assert.equal(JSON.stringify(validBody).includes("TEST-ONLY-ID"), false);
-  assert.deepEqual(Object.keys(validBody).sort(), ["message", "valid"]);
+  assert.deepEqual(Object.keys(validBody).sort(), ["country", "message", "valid"]);
+  assert.equal("id" in validBody, false);
   assert.equal("name" in validBody, false);
-  assert.equal("country" in validBody, false);
 
   const unknown = await onRequest({
     request: makeRequest({ body: { id: "TEST-ONLY-UNKNOWN-0000000000000001" } }),
@@ -105,25 +106,38 @@ try {
   });
   assert.deepEqual(await unknown.json(), { valid: false, message: "沒有在免簽名單之內" });
 
-  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,suspended\n`;
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,TEST-ONLY-COUNTRY,suspended\n`;
   const suspended = await onRequest({ request: makeRequest(), env: {} });
   assert.deepEqual(await suspended.json(), { valid: false, message: "沒有在免簽名單之內" });
 
-  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,revoked\n`;
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,TEST-ONLY-COUNTRY,revoked\n`;
   const revoked = await onRequest({ request: makeRequest(), env: {} });
   assert.deepEqual(await revoked.json(), { valid: false, message: "沒有在免簽名單之內" });
 
-  registryCsv = "id,wrong_status\nTEST-ONLY-ID-0000000000000001,active\n";
-  const invalidConfig = await onConfigRequest({ request: new Request("https://mjvs.test/api/config"), env: {} });
-  assert.equal((await invalidConfig.json()).status, "invalid");
+  registryCsv = "id,wrong_country,status\nTEST-ONLY-ID-0000000000000001,TEST-ONLY-COUNTRY,active\n";
+  const invalidHeaderConfig = await onConfigRequest({ request: new Request("https://mjvs.test/api/config"), env: {} });
+  assert.equal((await invalidHeaderConfig.json()).status, "invalid");
   assert.equal((await onRequest({ request: makeRequest(), env: {} })).status, 503);
 
-  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,\n`;
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,TEST-ONLY-COUNTRY,\n`;
   const missingStatusConfig = await onConfigRequest({ request: new Request("https://mjvs.test/api/config"), env: {} });
   assert.equal((await missingStatusConfig.json()).status, "invalid");
   assert.equal((await onRequest({ request: makeRequest(), env: {} })).status, 503);
 
-  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,active\nTEST-ONLY-ID-0000000000000001,active\n`;
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,,active\n`;
+  const missingCountryConfig = await onConfigRequest({ request: new Request("https://mjvs.test/api/config"), env: {} });
+  const missingCountryConfigBody = await missingCountryConfig.json();
+  assert.equal(missingCountryConfigBody.status, "invalid");
+  assert.match(missingCountryConfigBody.message, /資料不完整/);
+  const missingCountryLookup = await onRequest({ request: makeRequest(), env: {} });
+  assert.equal(missingCountryLookup.status, 503);
+  const missingCountryBody = await missingCountryLookup.json();
+  assert.equal(missingCountryBody.error, "registry_invalid");
+  assert.match(missingCountryBody.message, /資料不完整/);
+  assert.equal(missingCountryBody.message.includes("沒有在免簽名單之內"), false);
+  assert.equal(JSON.stringify(missingCountryBody).includes("TEST-ONLY-ID"), false);
+
+  registryCsv = `${validHeaders}\nTEST-ONLY-ID-0000000000000001,TEST-ONLY-COUNTRY,active\nTEST-ONLY-ID-0000000000000001,TEST-ONLY-COUNTRY,active\n`;
   assert.equal((await onRequest({ request: makeRequest(), env: {} })).status, 503);
 
   csvResponseOk = false;
@@ -139,14 +153,15 @@ try {
   const page = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
   const frontend = await readFile(new URL("../site/app.js", import.meta.url), "utf8");
   assert.match(page, /知道試算表連結的人可以查看整份表格/);
-  assert.match(page, /ID 有效性查驗/);
+  assert.match(page, /有效時顯示所屬國家/);
+  assert.match(page, /country_name/);
   assert.match(page, /discord\.gg\/upPuxDWxUT/);
   assert.match(page, /沒有在免簽名單之內/);
   assert.doesNotMatch(page + frontend, /互惠|申請流程|申請準備|參與方申請|兩種 ID|個案審查/);
   assert.doesNotMatch(page + frontend, /turnstile|captcha|rate.?limit|防刷|限流/i);
-  assert.doesNotMatch(frontend, /registeredName|registered_name|\.country/);
+  assert.doesNotMatch(frontend, /registeredName|registered_name|data\.id/);
   assert.ok(csvCalls > 0);
-  console.log("MJVS lookup tests passed: empty registry is not reported as not-listed; valid/unknown IDs work when rows exist.");
+  console.log("MJVS lookup tests passed: country is returned only for active IDs; missing country/status stays unconfirmed.");
 } finally {
   globalThis.fetch = originalFetch;
   delete globalThis.__MJVS_REGISTRY_HELPER__;

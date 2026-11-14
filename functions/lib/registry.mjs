@@ -1,12 +1,14 @@
-const PUBLIC_CSV_URL = "https://docs.google.com/spreadsheets/d/1A6Pcriu-xDtgUSM0oPHx362QApUg_-KkSmCmK_FUVFU/gviz/tq?tqx=out:csv&gid=1037470539&tq=select%20A%2CB";
+const PUBLIC_CSV_URL = "https://docs.google.com/spreadsheets/d/1A6Pcriu-xDtgUSM0oPHx362QApUg_-KkSmCmK_FUVFU/gviz/tq?tqx=out:csv&gid=1037470539&tq=select%20A%2CB%2CC";
 const MAX_CSV_BYTES = 2_000_000;
 const MAX_REGISTRY_ROWS = 5000;
+const MAX_COUNTRY_NAME_LENGTH = 120;
 const VALID_STATUSES = new Set(["active", "suspended", "revoked"]);
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/u;
 
 export function normalizeId(value) {
   if (typeof value !== "string") return null;
   const id = value.normalize("NFKC").trim().toUpperCase();
-  if (!id || id.length > 128 || /[\u0000-\u001f\u007f]/u.test(id)) return null;
+  if (!id || id.length > 128 || CONTROL_CHARS.test(id)) return null;
   return id;
 }
 
@@ -87,34 +89,42 @@ function parseCsv(text) {
 
 export async function getRegistryState() {
   const csvText = await fetchLimitedCsv();
-  if (csvText === null) return { ready: false, state: "unavailable", statuses: null };
+  if (csvText === null) return { ready: false, state: "unavailable", records: null };
 
   const rows = parseCsv(csvText);
-  if (!rows?.length) return { ready: false, state: "invalid", statuses: null };
+  if (!rows?.length) return { ready: false, state: "invalid", records: null };
   const headers = rows[0].map((value) => value.trim());
-  if (headers.length !== 2 || headers[0] !== "id" || headers[1] !== "status") {
-    return { ready: false, state: "invalid", statuses: null };
+  if (headers.length !== 3 || headers[0] !== "id" || headers[1] !== "country_name" || headers[2] !== "status") {
+    return { ready: false, state: "invalid", records: null };
   }
 
-  const records = rows.slice(1).filter((record) => record.some((cell) => cell.trim() !== ""));
-  if (records.length === 0) return { ready: false, state: "empty", statuses: null };
-  if (records.length > MAX_REGISTRY_ROWS) return { ready: false, state: "invalid", statuses: null };
+  const dataRows = rows.slice(1).filter((record) => record.some((cell) => cell.trim() !== ""));
+  if (dataRows.length === 0) return { ready: false, state: "empty", records: null };
+  if (dataRows.length > MAX_REGISTRY_ROWS) return { ready: false, state: "invalid", records: null };
 
-  const statuses = new Map();
-  for (const record of records) {
-    if (record.length !== 2) return { ready: false, state: "invalid", statuses: null };
-    const id = normalizeId(record[0]);
-    const status = record[1].trim().toLowerCase();
-    if (!id || !VALID_STATUSES.has(status) || statuses.has(id)) {
-      return { ready: false, state: "invalid", statuses: null };
+  const records = new Map();
+  for (const row of dataRows) {
+    if (row.length !== 3) return { ready: false, state: "invalid", records: null };
+    const id = normalizeId(row[0]);
+    const country = row[1].trim();
+    const status = row[2].trim().toLowerCase();
+    if (
+      !id ||
+      !country ||
+      country.length > MAX_COUNTRY_NAME_LENGTH ||
+      CONTROL_CHARS.test(country) ||
+      !VALID_STATUSES.has(status) ||
+      records.has(id)
+    ) {
+      return { ready: false, state: "invalid", records: null };
     }
-    statuses.set(id, status);
+    records.set(id, { country, status });
   }
 
-  return { ready: true, state: "ready", statuses };
+  return { ready: true, state: "ready", records };
 }
 
-export function getLookupStatus(registry, id) {
-  if (!registry?.ready || !(registry.statuses instanceof Map)) return null;
-  return registry.statuses.get(id) ?? "not_found";
+export function getLookupRecord(registry, id) {
+  if (!registry?.ready || !(registry.records instanceof Map)) return null;
+  return registry.records.get(id) ?? null;
 }

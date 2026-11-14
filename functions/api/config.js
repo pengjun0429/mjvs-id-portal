@@ -14,7 +14,7 @@ function json(payload, status = 200) {
 function messageFor(state) {
   if (state === "ready") return "名錄已啟用，可以查驗單筆 ID。";
   if (state === "empty") return "名錄尚未啟用（目前沒有任何 ID 記錄）。";
-  if (state === "invalid") return "名錄格式無法確認，暫時不能查驗。";
+  if (state === "invalid") return "名錄資料不完整或格式無法確認，暫時不能查驗。";
   return "名錄目前無法讀取，暫時不能確認 ID。";
 }
 

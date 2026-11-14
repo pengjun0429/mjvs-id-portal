@@ -105,7 +105,12 @@
         return;
       }
       if (data?.valid === true) {
-        renderMessage("此 ID 有效。", "valid");
+        const country = typeof data.country === "string" ? data.country.trim() : "";
+        if (!country) {
+          renderMessage("查驗結果缺少所屬國家，暫時無法確認。", "error");
+          return;
+        }
+        renderMessage(`此 ID 有效。所屬國家：${country}`, "valid");
         return;
       }
       if (data?.valid === false) {

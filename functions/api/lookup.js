@@ -1,8 +1,8 @@
-import { getLookupStatus, getRegistryState, normalizeId } from "../lib/registry.mjs";
+import { getLookupRecord, getRegistryState, normalizeId } from "../lib/registry.mjs";
 
 const MESSAGE_EMPTY = "名錄尚未啟用（目前沒有任何 ID 記錄）。";
 const MESSAGE_UNAVAILABLE = "名錄目前無法讀取，暫時不能確認 ID。";
-const MESSAGE_INVALID = "名錄格式無法確認，暫時不能查驗。";
+const MESSAGE_INVALID = "名錄資料不完整或格式無法確認，暫時不能查驗。";
 const MESSAGE_NOT_LISTED = "沒有在免簽名單之內";
 const MAX_BODY_LENGTH = 2048;
 
@@ -45,11 +45,12 @@ export async function onRequest({ request }) {
   try {
     const registry = await getRegistryState();
     if (!registry.ready) return unavailable(registry.state);
-    const status = getLookupStatus(registry, id);
-    if (status !== "active") return json({ valid: false, message: MESSAGE_NOT_LISTED });
+    const record = getLookupRecord(registry, id);
+    if (!record || record.status !== "active") return json({ valid: false, message: MESSAGE_NOT_LISTED });
     return json({
       valid: true,
       message: "此 ID 有效。",
+      country: record.country,
     });
   } catch {
     return unavailable("unavailable");

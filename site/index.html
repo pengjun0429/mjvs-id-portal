@@ -28,13 +28,13 @@
     <section class="hero section-wrap" id="top" aria-labelledby="hero-title">
       <p class="eyebrow">MJVS / ID LOOKUP</p>
       <h1 id="hero-title">ID 有效性查驗</h1>
-      <p class="hero-lede">輸入一個 ID，查詢目前公開名錄中的有效狀態。</p>
+      <p class="hero-lede">輸入一個 ID，查詢目前公開名錄中的有效狀態；有效時會顯示所屬國家。</p>
       <div class="hero-actions">
         <a class="text-link link-primary" href="#verify">前往 ID 查驗 <span aria-hidden="true">↓</span></a>
       </div>
       <div class="notice notice-status" role="status" aria-live="polite">
         <span class="notice-mark" aria-hidden="true">!</span>
-        <p><strong id="service-status-headline">正在確認名錄狀態。</strong>名錄為空或來源無法確認時，不會判定 ID 有效或回覆「沒有在免簽名單之內」。</p>
+        <p><strong id="service-status-headline">正在確認名錄狀態。</strong>名錄為空、必要欄位不完整或來源無法確認時，不會判定 ID 有效或回覆「沒有在免簽名單之內」。</p>
       </div>
     </section>
 
@@ -42,7 +42,7 @@
       <div class="section-heading">
         <p class="eyebrow">ID LOOKUP</p>
         <h2 id="verify-title">查驗單筆 ID</h2>
-        <p>只核對 ID 與狀態。查驗結果不會顯示姓名、國家或護照資料。</p>
+        <p>只核對 ID、國家與狀態。有效時顯示所屬國家，不顯示姓名、原始 ID 或護照資料。</p>
       </div>
       <div class="lookup-form" role="search" aria-label="MJVS ID 單筆查驗">
         <label for="id-number">個人 ID</label>
@@ -64,9 +64,9 @@
         <h2 id="privacy-title">資料與查驗狀態</h2>
       </div>
       <div class="principles-list">
-        <article><span>01</span><div><h3>只查 ID 與狀態</h3><p>查驗 API 只請求試算表的 ID 與狀態欄，回覆單筆結果；不提供名錄列表或批次查詢。</p></div></article>
+        <article><span>01</span><div><h3>只查 ID、國家與狀態</h3><p>查驗 API 只請求試算表的 id、country_name、status 欄；僅在 ID 有效時顯示國家，不提供名錄列表或批次查詢。</p></div></article>
         <article><span>02</span><div><h3>來源試算表可公開檢視</h3><p>知道試算表連結的人可以查看整份表格與所有欄位。請勿在表格中放入護照號碼、護照影像或其他不應公開的資料。</p></div></article>
-        <article><span>03</span><div><h3>空名錄不等於查無</h3><p>目前名錄沒有任何有效記錄時，頁面顯示「名錄尚未啟用」；只有名錄有有效資料而該 ID 不存在或已停用時，才會顯示「沒有在免簽名單之內」。</p></div></article>
+        <article><span>03</span><div><h3>空名錄或資料不完整不等於查無</h3><p>名錄為空或 id、country_name、status 任一必要欄位未填時，頁面顯示無法確認；只有完整名錄可讀時，才會判定 ID 有效或顯示「沒有在免簽名單之內」。</p></div></article>
       </div>
     </section>
 
