@@ -57,7 +57,7 @@
       lookupEnabled = true;
       updateControls();
       if (serviceStatus) serviceStatus.textContent = "查驗服務已啟用。";
-      if (lookupHelp) lookupHelp.textContent = "輸入一個 ID 即可查驗。輸入只會以同源 POST 傳送，不會放入網址；不要輸入姓名、護照號碼或其他個人資料。";
+      if (lookupHelp) lookupHelp.textContent = "輸入一個 ID 即可查驗。請勿輸入姓名、護照號碼或其他個人資料。";
       renderMessage(config.message || "名錄已啟用，可以查驗單筆 ID。", "info");
     } catch {
       showNotReady("名錄目前無法讀取，暫時不能確認 ID。");
@@ -105,7 +105,7 @@
         return;
       }
       if (data?.valid === true) {
-        renderMessage("此 ID 有效。實際免簽待遇仍須依目的地與個別生效互惠協議確認。", "valid");
+        renderMessage("此 ID 有效。", "valid");
         return;
       }
       if (data?.valid === false) {

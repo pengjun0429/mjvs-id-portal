@@ -93,6 +93,7 @@ try {
   assert.equal(valid.status, 200);
   const validBody = await valid.json();
   assert.equal(validBody.valid, true);
+  assert.equal(validBody.message, "此 ID 有效。");
   assert.equal(JSON.stringify(validBody).includes("TEST-ONLY-ID"), false);
   assert.deepEqual(Object.keys(validBody).sort(), ["message", "valid"]);
   assert.equal("name" in validBody, false);
@@ -132,8 +133,11 @@ try {
 
   const page = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
   const frontend = await readFile(new URL("../site/app.js", import.meta.url), "utf8");
-  assert.match(page, /任何取得試算表連結的人都能檢視整份表格/);
+  assert.match(page, /知道試算表連結的人可以查看整份表格/);
+  assert.match(page, /ID 有效性查驗/);
+  assert.match(page, /discord\.gg\/upPuxDWxUT/);
   assert.match(page, /沒有在免簽名單之內/);
+  assert.doesNotMatch(page + frontend, /互惠|申請流程|申請準備|參與方申請|兩種 ID|個案審查/);
   assert.doesNotMatch(page + frontend, /turnstile|captcha|rate.?limit|防刷|限流/i);
   assert.doesNotMatch(frontend, /registeredName|registered_name|\.country/);
   assert.ok(csvCalls > 0);

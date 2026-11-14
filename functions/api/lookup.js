@@ -49,7 +49,7 @@ export async function onRequest({ request }) {
     if (status !== "active") return json({ valid: false, message: MESSAGE_NOT_LISTED });
     return json({
       valid: true,
-      message: "此 ID 有效；實際免簽待遇仍須依目的地與個別生效互惠協議確認。",
+      message: "此 ID 有效。",
     });
   } catch {
     return unavailable("unavailable");
