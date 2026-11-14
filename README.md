@@ -1,36 +1,51 @@
-# MJVS 免簽 ID 申請與查驗網站
+# MJVS 免簽 ID 申請與查驗入口
 
-本站依《聯合微國家免簽中心組織規章》第 3 版草案延續製作，保留參與方申請、逐一互惠、個人 ID 申請／名單發放說明、公開查驗及協議原則等既有頁面。靜態網站位於 `site/`；Pages Function 位於專案根層 `functions/`；D1 schema migration 位於 `migrations/`，不會部署成公開靜態檔案。
+這是 MJVS 的公開網站入口，整理參與方申請、逐一互惠、兩種 ID 建立方式及單筆查驗流程。公開靜態資產只部署 `site/`；Pages Functions 位於專案根層 `functions/`。唯一權威名錄是 MJVS 管理的私密 Google 試算表；本專案不使用 D1，也不把試算表或名單提交至公開 repository。
 
-## 查驗回覆
+網站流程依工作區提供的《MJVS_規章與流程.md》第 3 版草案整理。加入 MJVS 不會自動與所有參與方互免；至少一份有效互惠協議才可登記為免簽國，且協議範圍、目的、停留期限、生效日與例外依個別協議。若已無有效協議，該身分暫停。網站內容不等於規章已正式通過、外交承認或入境保證。
 
-`POST /api/lookup` 接收單一 ID。若名錄已啟用，且找到有效、已授權公開姓名的記錄，只回傳 `country` 與 `registeredName`；查無記錄時回傳「沒有在免簽名單之內」。不提供姓名或國家搜尋、不提供批次／名單 endpoint，亦不回傳護照或原始 ID。
+## 公開查驗的回覆範圍
 
-ID 先以伺服器端 `ID_LOOKUP_PEPPER` 做 HMAC-SHA-256，再以摘要查詢；資料庫不保存原始 ID。個人 ID 查驗頁不把 ID 放入 URL，使用同源 POST、`Cache-Control: no-store`，前端以 `textContent` 顯示姓名，避免把資料當 HTML 執行。只有 `public_name_authorized=1` 的資料才會回傳姓名與國家。
+`POST /api/lookup` 一次只接受一個 ID。啟用後只回覆該 ID 是否有效；查無有效記錄時顯示「沒有在免簽名單之內」。名錄未啟用、空白、欄位錯誤、權限不足或任何上游服務故障時，一律回覆 503「名錄尚未啟用或無法確認」，不會將無法確認誤報成查無。
 
-資料表初始的 `registry_control.is_ready` 為 `0`。未建立／綁定 D1、金鑰缺少、尚未完成資料匯入或資料庫故障時，API 回傳 503「名錄尚未啟用／無法確認」，不會把空名錄誤報為「沒有在免簽名單之內」。只有完成資料匯入、對帳及啟用程序後，管理者才應把名錄標記為 ready。
+後端只向私密試算表讀取 `名錄!A`（`id`）與 `名錄!E`（`status`）兩欄；不讀取姓名、國家或其他欄位，也不將 ID 放入網址、瀏覽器儲存空間、公開回應或應用程式日誌。公開端沒有搜尋整表、批次查詢、下載或管理介面。只接受 `active`、`suspended`、`revoked` 狀態；重複、格式錯誤或不完整資料會使名錄 fail closed。ID 欄需在 Sheets 中設為純文字，以免前導零或長 ID 被試算表轉型。
 
-預設示範碼 `DEMO-ONLY-NOT-VALID` 是虛構且明確無效的；它只在瀏覽器顯示「沒有在免簽名單之內」的示範結果，不會送到 API，也不代表任何實際 ID、國家或協議。網站目前沒有任何真實 ID、姓名或護照資料。
+## 正式啟用前必須完成
 
-## 正式啟用前需要完成
+目前正式網站的查驗功能預設關閉，且 PORTIFY Pages 專案尚無 Google／Turnstile secret。先前工作階段的 Google Workspace 讀取授權回傳 401，無法用目前 connector 直接讀取這份私密試算表；因此不能聲稱已能查真實 ID。
 
-目前 PORTIFY 帳戶沒有 MJVS D1 資料庫，因此正式名錄不能查詢。需先建立 PORTIFY 專用 D1 並套用 `migrations/0001_id_registry.sql`，把名為 `DB` 的 D1 binding 設給 Pages Function 的 preview 與 production 環境，並以 Pages secret 設定隨機 `ID_LOOKUP_PEPPER`。現有 Cloudflare 憑證只授予 PORTIFY Pages Write，不能建立或寫入 D1；`fumo_cloudflare_d1_token` 只供 FUMO 帳戶，不可挪用。建立資料庫／執行 migration 需另有僅授予 PORTIFY D1 Edit／Write 的權限。
+要啟用，需先完成以下最小設定：
 
-建立 D1 前還需要確認資料儲存區域；台灣使用者可先考慮 APAC 作為主要位置提示，但這不等於嚴格資料在地化保證。還需由 MJVS 提供可透過安全私密管道匯入的正式資料，每筆至少含 ID、國家、註冊姓名、狀態及姓名可公開查驗的授權；不要把名單提交到公開 GitHub repo。ID 應使用高熵、不可順序猜測的識別碼，並在啟用公開查驗前配置 API 速率限制及防列舉措施。本站尚未實作管理員登入或名單匯入介面，亦未設定正式維運、稽核與資料保留政策。
+1. 在 Google Cloud 建立專用 service account、啟用 Sheets API，並將該帳號以 **Viewer** 身分只分享給官方私密試算表。不要公開 Sheet，也不要授予整個網域或 Editor 權限。提供 service-account JSON key 後，將其只存為 Cloudflare Pages secret `MJVS_GOOGLE_SERVICE_ACCOUNT_JSON`；程式只要求 `https://www.googleapis.com/auth/spreadsheets.readonly` scope。
+2. 在 Pages 環境設定 `MJVS_SPREADSHEET_ID`、`TURNSTILE_SITE_KEY`（公開 site key）及 secret `TURNSTILE_SECRET_KEY`。Turnstile widget 需允許正式 Pages 主機名及要使用的 preview 主機名；伺服器會檢查 Siteverify 成功、hostname 及 `mjvs_lookup` action。
+3. 部署 `rate-limiter/` 中的 Durable Object Worker，並將它以 `LOOKUP_RATE_LIMITER` 綁定至 Pages Function；另以 Pages secret 設定隨機 `LOOKUP_RATE_LIMIT_PEPPER`。限流器按 HMAC 後的來源 IP hash 限制每分鐘最多 10 次，不保存原始 IP。Cloudflare Pages 文件沒有列出原生 Rate Limiting binding，因此本專案使用獨立 Durable Object；目前既有 PORTIFY token 只有 Pages Write，不能完成 Worker 部署／綁定。
+4. 完成正式名錄填寫、逐筆核對、確認 ID 不可預測且不是連號後，才在 Cloudflare Pages 設定 `MJVS_PUBLIC_LOOKUP_ENABLED=true`。名錄為空或不完整時，API 仍會回覆無法確認。不要把任何真實 ID、姓名、護照或名單放入 GitHub、測試 fixture 或公開文件。
 
-免簽適用仍須依來源國、目的地、旅行目的、日期、有效協議與例外個別判斷；查到有效 ID 不代表有互惠安排，也不保證個案一定獲准入境。此網站不代表規章草案已正式通過。
+所需 Cloudflare 設定值名稱已寫在程式及本文件中，但目前沒有任何真實 Google、Turnstile 或名錄資料存於 repository。服務端 Google key、Turnstile secret、限流 pepper 不可放進 `site/`、`wrangler.jsonc` 或公開原始碼。
 
 ## 本機檢查與部署
 
-靜態頁面可用 `python3 -m http.server 8080 --directory site` 預覽。Pages Functions 需要 Wrangler Pages runtime；部署前需在本機有對應的 Cloudflare 憑證。
-
 ```sh
 node tests/lookup.test.mjs
-npx wrangler pages deploy ./site --project-name mjvs-id-portal --branch mjvs-preview
+node tests/rate-limiter.test.mjs
+node --check site/app.js
+node --input-type=module --check < functions/api/lookup.js
+node --input-type=module --check < functions/api/config.js
+
+# 靜態預覽
+python3 -m http.server 8080 --directory site
+
+# Pages Direct Upload：只部署本專案的 site/，不要部署工作目錄
+npx wrangler pages deploy ./site --project-name mjvs-id-portal --branch main
 ```
 
-Cloudflare Pages 專案採 Direct Upload，沒有連接 GitHub 自動部署；每次更新需重新部署。只部署 `site/` 靜態目錄，Functions 會從專案根層 `functions/` 讀取，`migrations/` 不會公開。
+Cloudflare Pages 專案採 Direct Upload、沒有連接 GitHub 自動部署。主分支 `main` 是 production branch；`mjvs-preview` 是 preview branch。Functions 由專案根層 `functions/` 配合 Pages 專案設定處理；`rate-limiter/` 是獨立 Worker source，不會被當成網站靜態資產部署。
 
-## 規章參考
+## 官方技術文件
 
-依工作區提供的《MJVS_規章與流程.md》第 3 版草案：第二章（第 3–4 條）、第四章（第 7–9 條）、第五章（第 10–11 條）、第六章（第 12–13 條）及附錄一、附錄二。
+- [Google Sheets API OAuth scopes](https://developers.google.com/workspace/sheets/api/scopes) — 使用唯讀 `spreadsheets.readonly` scope。
+- [Google Cloud credentials](https://developers.google.com/workspace/guides/create-credentials) — service account 憑證管理參考。
+- [Cloudflare Turnstile client-side rendering](https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/) 與 [server-side validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/) — 每次 token 都需伺服器端驗證；token 單次使用且 5 分鐘到期。
+- [Cloudflare Pages Functions bindings](https://developers.cloudflare.com/pages/functions/bindings/) 與 [Wrangler configuration](https://developers.cloudflare.com/pages/functions/wrangler-configuration/) — Pages Function 綁定與設定參考。
+- [Cloudflare Workers Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) — Worker Runtime 的限制說明；Pages Functions bindings 清單未提供原生 Rate Limiting binding，因此需額外的 Durable Object 或自有網域 WAF 規則。
+- [Cloudflare Workers secrets](https://developers.cloudflare.com/workers/configuration/secrets/) — 憑證只存 Cloudflare secret，不進公開原始碼。
